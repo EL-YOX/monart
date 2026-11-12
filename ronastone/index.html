@@ -144,6 +144,30 @@
   document.getElementById('again').addEventListener('click', function () { v.currentTime = 0; bar.style.transform = 'scaleX(0)'; play(); });
   function hash() { if (location.hash === '#contact') { v.pause(); end(); } }   // the address ending in #contact opens the contact at once
   hash(); window.addEventListener('hashchange', hash);
+
+  // ---- counting, for MONART's own statistics: which book, and what happened (page opened, film started, film
+  // finished, a button pressed). Nothing about the visitor is sent or kept: no name, no address, no cookie.
+  // Only the live site counts, and a device that has opened the private statistics page is left out.
+  var COUNT = 'https://szklxvnutiibfntchazj.supabase.co/functions/v1/monart-qr', BOOK = 'ronastone', own = false, played = false;
+  try { own = !!localStorage.getItem('monart-own-device'); } catch (e) {}
+  function count(what) {
+    if (!COUNT || own || location.hostname !== 'el-yox.github.io') return;
+    try {
+      var phone = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+      fetch(COUNT, { method: 'POST', keepalive: true, headers: { 'Content-Type': 'text/plain' },
+                     body: JSON.stringify({ book: BOOK, event: what, device: phone ? 'phone' : 'computer' }) }).catch(function () {});
+    } catch (e) {}
+  }
+  count('open');
+  v.addEventListener('play', function () { if (!played) { played = true; count('play'); } });
+  v.addEventListener('ended', function () { count('end'); });
+  document.getElementById('skip').addEventListener('click', function () { count('contact'); });
+  document.getElementById('again').addEventListener('click', function () { count('replay'); });
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest && e.target.closest('a[href]');
+    if (!a) return;
+    if (a.href.indexOf('wa.me') > -1) count('whatsapp'); else if (a.href.indexOf('mailto:') === 0) count('email');
+  }, true);
 })();
 </script>
 </body>

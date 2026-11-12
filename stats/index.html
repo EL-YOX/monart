@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#efe7e0">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<title>MONART — QR code statistics</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&display=swap">
+<style>
+  :root { --paper: #efe7e0; --card: #f6f0ea; --ink: #151413; --red: #c4161c; --muted: #736c62; --line: rgba(21, 20, 19, .14);
+          --serif: "Instrument Serif", "Iowan Old Style", Georgia, serif; --sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { background: var(--paper); color: var(--ink); font: 400 15px/1.5 var(--sans); -webkit-font-smoothing: antialiased; }
+  main { max-width: 980px; margin: 0 auto; padding: max(26px, env(safe-area-inset-top)) 18px 60px; }
+  h1 { margin: 0; font: 400 clamp(32px, 7vw, 44px)/1.05 var(--serif); }
+  h1 i { color: var(--red); }
+  .sub { margin: 8px 0 0; color: var(--muted); font-size: 13px; }
+  .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin: 20px 0 26px; }
+  button { font: 600 10.5px/1 var(--sans); letter-spacing: .18em; text-transform: uppercase; color: var(--ink); background: none; border: 1px solid var(--ink); border-radius: 999px; padding: 11px 16px; cursor: pointer; }
+  label.chk { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); cursor: pointer; }
+  h2 { margin: 34px 0 12px; font: 600 10.5px/1 var(--sans); letter-spacing: .24em; text-transform: uppercase; color: var(--muted); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+  .tile { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px 18px 14px; }
+  .tile h3 { margin: 0; font: 400 24px/1.1 var(--serif); }
+  .tile h3 small { display: block; margin-top: 3px; font: italic 400 14px/1.2 var(--serif); color: var(--red); }
+  .big { margin: 14px 0 2px; font: 400 54px/1 var(--serif); font-variant-numeric: tabular-nums; }
+  .big + p { margin: 0 0 12px; font: 600 10px/1.3 var(--sans); letter-spacing: .2em; text-transform: uppercase; color: var(--muted); }
+  dl { margin: 0; border-top: 1px solid var(--line); }
+  dl div { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  dl div:last-child { border-bottom: 0; }
+  dt { color: var(--muted); font-size: 13px; }
+  dd { margin: 0; font: 400 20px/1 var(--serif); font-variant-numeric: tabular-nums; }
+  dd small { margin-left: 6px; font: 400 12px/1 var(--sans); color: var(--muted); }
+  .scroll { overflow-x: auto; background: var(--card); border: 1px solid var(--line); border-radius: 14px; }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  th, td { padding: 10px 14px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th:first-child, td:first-child { text-align: left; }
+  thead th { font: 600 10px/1.2 var(--sans); letter-spacing: .18em; text-transform: uppercase; color: var(--muted); }
+  tbody tr:last-child td { border-bottom: 0; }
+  td.zero { color: rgba(21, 20, 19, .32); }
+  .note { margin-top: 26px; color: var(--muted); font-size: 13px; max-width: 70ch; }
+  .msg { margin: 40px 0; font: 400 22px/1.3 var(--serif); }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <h1>MONART <i>QR code statistics</i></h1>
+  <p class="sub" id="sub">Loading…</p>
+
+  <p class="msg" id="msg" hidden></p>
+
+  <div id="app" hidden>
+    <div class="bar">
+      <button id="refresh">Refresh</button>
+      <label class="chk"><input type="checkbox" id="own"> Do not count my own visits from this device</label>
+    </div>
+
+    <h2>Since the start</h2>
+    <div class="grid" id="tiles"></div>
+
+    <h2>Day by day · pages opened</h2>
+    <div class="scroll"><table>
+      <thead><tr><th>Day</th><th>Ronastone</th><th>Fusto</th><th>Musti</th><th>All</th><th>Films finished</th><th>Contact presses</th></tr></thead>
+      <tbody id="days"></tbody>
+    </table></div>
+
+    <p class="note">How to read it. “Pages opened” is the number of times a book’s page was opened, which is what a scan of the QR code does; one person who scans twice counts twice, and opening the link without scanning counts too. “Film started” needs a tap on the play button. “Contact presses” adds the WhatsApp and e-mail presses. Nothing about the visitors is kept: no name, no number, no address.</p>
+  </div>
+</main>
+
+<script>
+(function () {
+  var COUNT = 'https://szklxvnutiibfntchazj.supabase.co/functions/v1/monart-qr';
+  var BOOKS = [['ronastone', 'Ronastone', 'Éclats'], ['fusto', 'Fusto', 'Éclats'], ['musti', 'Musti', 'PSG en éclats de mosaïque']];
+  var $ = function (id) { return document.getElementById(id); };
+  var store = { get: function (k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+                set: function (k, v) { try { v === null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) {} } };
+
+  // the private key comes after the # of the link the first time; it is then remembered on this device only
+  var key = decodeURIComponent((location.hash || '').replace(/^#/, ''));
+  if (key) { store.set('monart-stats-key', key); if (store.get('monart-own-device') === null) store.set('monart-own-device', '1'); history.replaceState(null, '', location.pathname); }
+  else key = store.get('monart-stats-key') || '';
+
+  $('own').checked = !!store.get('monart-own-device');
+  $('own').addEventListener('change', function () { store.set('monart-own-device', this.checked ? '1' : null); });
+  $('refresh').addEventListener('click', load);
+
+  function n(v) { return (v || 0).toLocaleString('en'); }
+  function pct(a, b) { return b ? ' <small>' + Math.round(100 * a / b) + ' %</small>' : ''; }
+  function fail(text) { $('app').hidden = true; $('msg').hidden = false; $('msg').textContent = text; $('sub').textContent = ''; }
+
+  function render(d) {
+    var t = {}; d.totals.forEach(function (r) { (t[r.book] = t[r.book] || {})[r.event] = r.n; });
+    var dev = {}; d.devices.forEach(function (r) { (dev[r.book] = dev[r.book] || {})[r.device] = r.n; });
+    var all = {}; BOOKS.forEach(function (b) { for (var e in (t[b[0]] || {})) all[e] = (all[e] || 0) + t[b[0]][e]; });
+    var phones = 0, opens = 0; BOOKS.forEach(function (b) { phones += (dev[b[0]] || {}).phone || 0; opens += (t[b[0]] || {}).open || 0; });
+    function tile(title, sub, x, extra) {
+      return '<section class="tile"><h3>' + title + (sub ? '<small>' + sub + '</small>' : '') + '</h3>' +
+        '<div class="big">' + n(x.open) + '</div><p>pages opened (scans)</p><dl>' +
+        '<div><dt>Film started</dt><dd>' + n(x.play) + pct(x.play || 0, x.open) + '</dd></div>' +
+        '<div><dt>Film watched to the end</dt><dd>' + n(x.end) + pct(x.end || 0, x.open) + '</dd></div>' +
+        '<div><dt>WhatsApp pressed</dt><dd>' + n(x.whatsapp) + '</dd></div>' +
+        '<div><dt>E-mail pressed</dt><dd>' + n(x.email) + '</dd></div>' + (extra || '') + '</dl></section>';
+    }
+    var html = tile('All three books', '', all, '<div><dt>Opened on a phone</dt><dd>' + n(phones) + pct(phones, opens) + '</dd></div>');
+    BOOKS.forEach(function (b) { html += tile(b[1], b[2], t[b[0]] || {}); });
+    $('tiles').innerHTML = html;
+
+    var days = {}; d.days.forEach(function (r) { var x = days[r.day] = days[r.day] || {}; x[r.book + '/' + r.event] = r.n; });
+    var rows = Object.keys(days).sort().reverse().map(function (day) {
+      var x = days[day], sum = 0, ends = 0, press = 0, cells = '';
+      BOOKS.forEach(function (b) { var o = x[b[0] + '/open'] || 0; sum += o; ends += x[b[0] + '/end'] || 0; press += (x[b[0] + '/whatsapp'] || 0) + (x[b[0] + '/email'] || 0);
+        cells += '<td' + (o ? '' : ' class="zero"') + '>' + n(o) + '</td>'; });
+      var label = new Date(day + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+      return '<tr><td>' + label + '</td>' + cells + '<td>' + n(sum) + '</td><td' + (ends ? '' : ' class="zero"') + '>' + n(ends) + '</td><td' + (press ? '' : ' class="zero"') + '>' + n(press) + '</td></tr>';
+    });
+    $('days').innerHTML = rows.join('') || '<tr><td colspan="7" style="text-align:left;color:var(--muted)">Nothing counted yet.</td></tr>';
+
+    var last = d.last_at ? new Date(d.last_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'none yet';
+    $('sub').textContent = 'Updated ' + new Date(d.now).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) + ' · last activity: ' + last + (d.first_at ? ' · counting since ' + new Date(d.first_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '');
+    $('msg').hidden = true; $('app').hidden = false;
+  }
+
+  function load() {
+    if (!key) return fail('This page is private. Open it with your private link.');
+    $('sub').textContent = 'Loading…';
+    fetch(COUNT, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ stats: key }) })
+      .then(function (r) { return r.json(); })
+      .then(function (d) { if (!d || !d.ok) { store.set('monart-stats-key', null); return fail('This link is not valid any more. Ask for the new private link.'); } render(d); })
+      .catch(function () { fail('The numbers could not be loaded. Check the connection and try again.'); });
+  }
+  load();
+  setInterval(function () { if (!document.hidden && key && !$('app').hidden) load(); }, 60000);
+})();
+</script>
+</body>
+</html>
